@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Asistencia FP - Colegio Lagomar</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans">
+
+  <!-- CABECERA PRINCIPAL -->
+  <header class="bg-indigo-900 text-white shadow-lg sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+      <div class="flex items-center gap-3">
+        <div class="bg-white text-indigo-900 p-2.5 rounded-xl shadow font-black text-xl tracking-wider">
+          LAGOMAR
+        </div>
+        <div>
+          <h1 class="text-lg font-bold leading-tight">Control de Asistencia FP</h1>
+          <p class="text-xs text-indigo-200">Avda. Mar Adriático, 5 - Valdemoro</p>
+        </div>
+      </div>
+
+      <!-- Selector de Vistas -->
+      <nav class="flex bg-indigo-950/60 p-1 rounded-xl">
+        <button id="tabAlumnoBtn" onclick="cambiarVista('alumno')" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-indigo-600 text-white shadow">
+          <i class="fa-solid fa-user-graduate mr-1.5"></i> Fichaje Alumno
+        </button>
+        <button id="tabDocenteBtn" onclick="cambiarVista('docente')" class="px-4 py-2 rounded-lg text-sm font-semibold text-indigo-200 hover:text-white transition-all">
+          <i class="fa-solid fa-chalkboard-user mr-1.5"></i> Panel Docente
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="max-w-6xl mx-auto px-4 py-6">
+
+    <!-- ==================== VISTA ALUMNO ==================== -->
+    <section id="vistaAlumno" class="max-w-xl mx-auto">
+      
+      <!-- Estado de Geovalla -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs uppercase tracking-wider font-bold text-slate-500">Estado de Ubicación GPS</span>
+          <span id="geoStatusBadge" class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+            <span class="w-2 h-2 rounded-full bg-slate-400 animate-pulse"></span> Sin verificar
+          </span>
+        </div>
+
+        <p id="geoDistanciaTexto" class="text-sm text-slate-600 mb-4">
+          Pulsa el botón inferior para activar la geolocalización y comprobar si estás en el recinto del centro.
+        </p>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="obtenerUbicacionReal()" class="col-span-2 bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 px-4 rounded-xl text-sm flex items-center justify-center gap-2 transition">
+            <i class="fa-solid fa-location-crosshairs text-indigo-400"></i> Obtener mi ubicación GPS real
+          </button>
+          <button onclick="simularUbicacion(40.17815, -3.68399)" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs py-2 px-3 rounded-lg border border-emerald-200 font-semibold transition">
+            <i class="fa-solid fa-building mr-1"></i> Simular dentro (0m)
+          </button>
+          <button onclick="simularUbicacion(40.4168, -3.7038)" class="bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs py-2 px-3 rounded-lg border border-amber-200 font-semibold transition">
+            <i class="fa-solid fa-house mr-1"></i> Simular fuera (Madrid)
+          </button>
+        </div>
+      </div>
+
+      <!-- Formulario de Fichaje -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-id-card text-indigo-600"></i> Registro de Asistencia
+        </h2>
+
+        <form id="formFichaje" onsubmit="registrarFichaje(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Nombre Completo</label>
+            <input type="text" id="alumnoNombre" required placeholder="Ej: Marcos García López" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">DNI / NIE</label>
+            <input type="text" id="alumnoDni" required placeholder="12345678Z" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Grado de FP</label>
+            <select id="selectGrado" onchange="actualizarAsignaturas()" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white">
+              <option value="">Selecciona tu ciclo...</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Módulo / Asignatura y Profesor</label>
+            <select id="selectAsignatura" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white">
+              <option value="">Primero selecciona el grado...</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Tipo de Evento</label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="flex items-center gap-2 border border-slate-200 p-2.5 rounded-xl cursor-pointer hover:bg-slate-50 transition">
+                <input type="radio" name="tipoEvento" value="ENTRADA" checked class="text-indigo-600 focus:ring-indigo-500">
+                <span class="text-sm font-semibold text-slate-700">Entrada a clase</span>
+              </label>
+              <label class="flex items-center gap-2 border border-slate-200 p-2.5 rounded-xl cursor-pointer hover:bg-slate-50 transition">
+                <input type="radio" name="tipoEvento" value="SALIDA" class="text-indigo-600 focus:ring-indigo-500">
+                <span class="text-sm font-semibold text-slate-700">Salida de clase</span>
+              </label>
+            </div>
+          </div>
+
+          <button type="submit" id="btnSubmitFichaje" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow transition duration-200 flex items-center justify-center gap-2 mt-2">
+            <i class="fa-solid fa-fingerprint text-lg"></i> Confirmar Fichaje
+          </button>
+        </form>
+
+        <div id="alertaFichaje" class="hidden mt-4 p-4 rounded-xl text-sm font-medium"></div>
+      </div>
+    </section>
+
+    <!-- ==================== VISTA DOCENTE ==================== -->
+    <section id="vistaDocente" class="hidden space-y-6">
+      
+      <!-- Métricas Resumen -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl font-bold">
+            <i class="fa-solid fa-list-check"></i>
+          </div>
+          <div>
+            <p class="text-xs uppercase font-bold text-slate-400">Total Fichajes</p>
+            <h3 id="statTotal" class="text-2xl font-black text-slate-800">0</h3>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl font-bold">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+          <div>
+            <p class="text-xs uppercase font-bold text-slate-400">Válidos (En centro)</p>
+            <h3 id="statValidos" class="text-2xl font-black text-emerald-600">0</h3>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center text-xl font-bold">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div>
+            <p class="text-xs uppercase font-bold text-slate-400">Fuera de Geovalla</p>
+            <h3 id="statInvalidos" class="text-2xl font-black text-rose-600">0</h3>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla y Filtros -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
+          <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i> Registro de Asistencias en Vivo
+          </h2>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <button onclick="cargarAsistencias()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-semibold transition">
+              <i class="fa-solid fa-rotate-right mr-1"></i> Actualizar
+            </button>
+            <button onclick="exportarCSV()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-2 rounded-xl text-xs font-semibold transition">
+              <i class="fa-solid fa-download mr-1"></i> Exportar CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabla Responsive -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs sm:text-sm">
+            <thead class="bg-slate-50 text-slate-500 uppercase font-bold text-[11px] border-b border-slate-200">
+              <tr>
+                <th class="py-3 px-3">Fecha / Hora</th>
+                <th class="py-3 px-3">Alumno</th>
+                <th class="py-3 px-3">DNI</th>
+                <th class="py-3 px-3">Asignatura</th>
+                <th class="py-3 px-3">Tipo</th>
+                <th class="py-3 px-3">Distancia</th>
+                <th class="py-3 px-3">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tablaAsistenciasBody" class="divide-y divide-slate-100">
+              <tr>
+                <td colspan="7" class="py-8 text-center text-slate-400">Cargando registros...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== LÓGICA JAVASCRIPT ==================== -->
+  <script>
+    // -------------------------------------------------------------
+    // CONFIGURACIÓN DE SUPABASE (REEMPLAZA CON TUS CLAVES)
+    // -------------------------------------------------------------
+    const SUPABASE_URL = "https://nlvfprquweoajxahaohj.supabase.co/rest/v1/";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sdmZwcnF1d2VvYWp4YWhhb2hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjM0MjksImV4cCI6MjEwODMzOTQyOX0.9osP3_0RmgVIqBoVRM57tWhPhcH751JHVa5jr7HMR20";
+    
+    // Inicializar cliente Supabase
+    const db = (SUPABASE_URL.indexOf("TU_PROYECTO") === -1) 
+      ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+      : null;
+
+    // Coordenadas reales del Colegio Lagomar (Valdemoro)
+    const CENTRO_LAT = 40.17815;
+    const CENTRO_LON = -3.68399;
+    const RADIO_PERMITIDO_METROS = 250; // Margen de geovalla del campus
+
+    let ubicacionActual = null;
+    let cacheGrados = [];
+    let cacheAsignaturas = [];
+    let listaAsistencias = [];
+
+    // FÓRMULA DE HAVERSINE PARA DISTANCIA EXACTA EN METROS
+    function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; // Radio de la Tierra en metros
+      const rad = Math.PI / 180;
+      const dLat = (lat2 - lat1) * rad;
+      const dLon = (lon2 - lon1) * rad;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * rad) * Math.cos(lat2 * rad) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return Math.round(R * c);
+    }
+
+    // OBTENER UBICACIÓN GPS DEL NAVEGADOR
+    function obtenerUbicacionReal() {
+      if (!navigator.geolocation) {
+        alert("Tu navegador no soporta geolocalización.");
+        return;
+      }
+      mostrarEstadoCargandoUbicacion();
+      navigator.geolocation.getCurrentPosition(
+        (pos) => procesarCoordenadas(pos.coords.latitude, pos.coords.longitude),
+        (err) => {
+          let msg = "No se pudo obtener la ubicación.";
+          if (err.code === 1) msg = "Permiso de GPS denegado. Permite la ubicación en el navegador.";
+          actualizarBadgeUbicacion(false, msg, null);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+
+    function simularUbicacion(lat, lon) {
+      procesarCoordenadas(lat, lon);
+    }
+
+    function mostrarEstadoCargandoUbicacion() {
+      const badge = document.getElementById('geoStatusBadge');
+      badge.className = "inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700";
+      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span> Obteniendo GPS...`;
+    }
+
+    function procesarCoordenadas(lat, lon) {
+      const dist = calcularDistanciaMetros(lat, lon, CENTRO_LAT, CENTRO_LON);
+      const estaDentro = dist <= RADIO_PERMITIDO_METROS;
+      ubicacionActual = { lat, lon, dist, estaDentro };
+
+      actualizarBadgeUbicacion(estaDentro, null, dist);
+    }
+
+    function actualizarBadgeUbicacion(estaDentro, errorMsg, dist) {
+      const badge = document.getElementById('geoStatusBadge');
+      const texto = document.getElementById('geoDistanciaTexto');
+
+      if (errorMsg) {
+        badge.className = "inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-50 text-rose-700";
+        badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Error GPS`;
+        texto.innerText = errorMsg;
+        return;
+      }
+
+      if (estaDentro) {
+        badge.className = "inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700";
+        badge.innerHTML = `<i class="fa-solid fa-circle-check"></i> Dentro de Lagomar (${dist} m)`;
+        texto.innerHTML = `<span class="text-emerald-700 font-semibold">Ubicación verificada.</span> Estás a <b>${dist} metros</b> del centro (máximo permitido: ${RADIO_PERMITIDO_METROS}m). El fichaje será válido.`;
+      } else {
+        badge.className = "inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-50 text-rose-700";
+        badge.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Fuera del centro (${dist} m)`;
+        texto.innerHTML = `<span class="text-rose-600 font-semibold">Estás fuera del recinto.</span> Te encuentras a <b>${dist} metros</b>. Se registrará con aviso de "FUERA DE GEOVALLA".`;
+      }
+    }
+
+    // CARGAR DATOS DE GRADOS Y ASIGNATURAS
+    async function inicializarDatos() {
+      if (db) {
+        const { data: grados } = await db.from('grados').select('*');
+        const { data: asig } = await db.from('asignaturas').select('*');
+        if (grados && asig) {
+          cacheGrados = grados;
+          cacheAsignaturas = asig;
+        }
+      } else {
+        // Datos por defecto en local si aún no se ha conectado Supabase
+        cacheGrados = [
+          { id: 1, nombre: 'DAM (Desarrollo Multiplataforma)', nivel: 'Grado Superior' },
+          { id: 2, nombre: 'DAW (Desarrollo Web)', nivel: 'Grado Superior' },
+          { id: 3, nombre: 'ASIR (Administración Redes)', nivel: 'Grado Superior' }
+        ];
+        cacheAsignaturas = [
+          { id: 1, nombre: 'Programación', profesor: 'Carlos Gómez', curso: '1º DAM', grado_id: 1 },
+          { id: 2, nombre: 'Bases de Datos', profesor: 'Laura Ramos', curso: '1º DAM', grado_id: 1 },
+          { id: 3, nombre: 'Desarrollo en Cliente', profesor: 'David Romero', curso: '2º DAW', grado_id: 2 },
+          { id: 4, nombre: 'Seguridad Informática', profesor: 'Alfonso Martín', curso: '2º ASIR', grado_id: 3 }
+        ];
+      }
+
+      const selectGrado = document.getElementById('selectGrado');
+      selectGrado.innerHTML = '<option value="">Selecciona tu ciclo...</option>';
+      cacheGrados.forEach(g => {
+        selectGrado.innerHTML += `<option value="${g.id}">${g.nombre}</option>`;
+      });
+    }
+
+    function actualizarAsignaturas() {
+      const gradoId = document.getElementById('selectGrado').value;
+      const selectAsig = document.getElementById('selectAsignatura');
+      selectAsig.innerHTML = '<option value="">Selecciona módulo / asignatura...</option>';
+      
+      const filtradas = cacheAsignaturas.filter(a => a.grado_id == gradoId);
+      filtradas.forEach(a => {
+        selectAsig.innerHTML += `<option value="${a.nombre}" data-prof="${a.profesor}" data-curso="${a.curso}">${a.nombre} - Prof. ${a.profesor} (${a.curso})</option>`;
+      });
+    }
+
+    // REGISTRAR FICHAJE
+    async function registrarFichaje(e) {
+      e.preventDefault();
+      const alerta = document.getElementById('alertaFichaje');
+      alerta.classList.add('hidden');
+
+      if (!ubicacionActual) {
+        alert("Debes activar la comprobación de ubicación GPS antes de poder registrar la asistencia.");
+        return;
+      }
+
+      const nombre = document.getElementById('alumnoNombre').value.trim();
+      const dni = document.getElementById('alumnoDni').value.trim().toUpperCase();
+      const selectGrado = document.getElementById('selectGrado');
+      const gradoTxt = selectGrado.options[selectGrado.selectedIndex].text;
+      
+      const selectAsig = document.getElementById('selectAsignatura');
+      const asigOpt = selectAsig.options[selectAsig.selectedIndex];
+      const asigTxt = asigOpt.value;
+      const cursoTxt = asigOpt.getAttribute('data-curso') || '1º';
+      const tipo = document.querySelector('input[name="tipoEvento"]:checked').value;
+
+      const estado = ubicacionActual.estaDentro ? 'VÁLIDO' : 'FUERA DE GEOVALLA';
+
+      const registro = {
+        alumno_nombre: nombre,
+        alumno_dni: dni,
+        grado: gradoTxt,
+        curso: cursoTxt,
+        asignatura: asigTxt,
+        tipo: tipo,
+        latitud: ubicacionActual.lat,
+        longitud: ubicacionActual.lon,
+        distancia_metros: ubicacionActual.dist,
+        estado: estado
+      };
+
+      if (db) {
+        const { error } = await db.from('asistencias').insert([registro]);
+        if (error) {
+          mostrarMensajeAlerta(false, "Error al registrar en la nube: " + error.message);
+          return;
+        }
+      } else {
+        // Almacenamiento local temporal
+        registro.created_at = new Date().toISOString();
+        listaAsistencias.unshift(registro);
+      }
+
+      mostrarMensajeAlerta(
+        ubicacionActual.estaDentro,
+        ubicacionActual.estaDentro 
+          ? `¡Fichaje de ${tipo} registrado con éxito! Estás dentro de las instalaciones.`
+          : `Fichaje guardado, pero registrado como FUERA DE GEOVALLA (${ubicacionActual.dist}m del centro).`
+      );
+
+      document.getElementById('formFichaje').reset();
+    }
+
+    function mostrarMensajeAlerta(esExito, msg) {
+      const alerta = document.getElementById('alertaFichaje');
+      alerta.className = `mt-4 p-4 rounded-xl text-sm font-medium ${esExito ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}`;
+      alerta.innerHTML = `<i class="fa-solid ${esExito ? 'fa-circle-check text-emerald-600' : 'fa-triangle-exclamation text-amber-600'} mr-1.5"></i> ${msg}`;
+      alerta.classList.remove('hidden');
+    }
+
+    // CARGAR TABLA EN EL PANEL DOCENTE
+    async function cargarAsistencias() {
+      const tbody = document.getElementById('tablaAsistenciasBody');
+      tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400">Consultando base de datos...</td></tr>`;
+
+      if (db) {
+        const { data, error } = await db.from('asistencias').select('*').order('created_at', { ascending: false });
+        if (!error && data) listaAsistencias = data;
+      }
+
+      let total = listaAsistencias.length;
+      let validos = listaAsistencias.filter(a => a.estado === 'VÁLIDO').length;
+      let invalidos = total - validos;
+
+      document.getElementById('statTotal').innerText = total;
+      document.getElementById('statValidos').innerText = validos;
+      document.getElementById('statInvalidos').innerText = invalidos;
+
+      if (listaAsistencias.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400">No hay registros de asistencia aún.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = '';
+      listaAsistencias.forEach(r => {
+        const fecha = new Date(r.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+        const esValido = r.estado === 'VÁLIDO';
+
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+            <td class="py-3 px-3 text-slate-500">${fecha}</td>
+            <td class="py-3 px-3 font-semibold text-slate-800">${r.alumno_nombre}</td>
+            <td class="py-3 px-3 text-slate-500">${r.alumno_dni}</td>
+            <td class="py-3 px-3"><span class="font-medium">${r.asignatura}</span> <span class="text-xs text-slate-400">(${r.curso})</span></td>
+            <td class="py-3 px-3">
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded ${r.tipo === 'ENTRADA' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-700'}">${r.tipo}</span>
+            </td>
+            <td class="py-3 px-3">${r.distancia_metros} m</td>
+            <td class="py-3 px-3">
+              <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${esValido ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                <i class="fa-solid ${esValido ? 'fa-check' : 'fa-xmark'}"></i> ${r.estado}
+              </span>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    // EXPORTAR A FORMATO CSV
+    function exportarCSV() {
+      if (listaAsistencias.length === 0) {
+        alert("No hay datos para exportar.");
+        return;
+      }
+      let csv = "Fecha,Alumno,DNI,Grado,Curso,Asignatura,Tipo,Distancia_m,Estado\n";
+      listaAsistencias.forEach(r => {
+        csv += `"${r.created_at}","${r.alumno_nombre}","${r.alumno_dni}","${r.grado}","${r.curso}","${r.asignatura}","${r.tipo}","${r.distancia_metros}","${r.estado}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `asistencias_lagomar_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // GESTIÓN DE PESTAÑAS
+    function cambiarVista(vista) {
+      const vAlumno = document.getElementById('vistaAlumno');
+      const vDocente = document.getElementById('vistaDocente');
+      const bAlumno = document.getElementById('tabAlumnoBtn');
+      const bDocente = document.getElementById('tabDocenteBtn');
+
+      if (vista === 'alumno') {
+        vAlumno.classList.remove('hidden');
+        vDocente.classList.add('hidden');
+        bAlumno.className = "px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-indigo-600 text-white shadow";
+        bDocente.className = "px-4 py-2 rounded-lg text-sm font-semibold text-indigo-200 hover:text-white transition-all";
+      } else {
+        vAlumno.classList.add('hidden');
+        vDocente.classList.remove('hidden');
+        bDocente.className = "px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-indigo-600 text-white shadow";
+        bAlumno.className = "px-4 py-2 rounded-lg text-sm font-semibold text-indigo-200 hover:text-white transition-all";
+        cargarAsistencias();
+      }
+    }
+
+    // INICIO
+    inicializarDatos();
+  </script>
+</body>
+</html>
